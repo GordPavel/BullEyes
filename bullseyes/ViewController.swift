@@ -9,44 +9,56 @@
 import UIKit
 
 class ViewController: UIViewController {
-
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
         goalNumber = randomGenerator()
         goalNumberLabel!.text = "Hit the \(goalNumber)!"
         
-        roundScoreLabel.text = "Round score: \( roundScore )"
         totalScoreLabel.text = "Total score: \( totalScore )"
         roundNumberLabel.text = "Round number \( roundNumber )"
+        
+        slider.setThumbImage( (#imageLiteral(resourceName: "SliderThumb-Normal")), for: .normal )
+        slider.setThumbImage( (#imageLiteral(resourceName: "SliderThumb-Highlighted")), for: .highlighted )
+        slider.setThumbImage( (#imageLiteral(resourceName: "SliderThumb-Normal")) , for: .normal )
+        let insets = UIEdgeInsets(top: 0, left: 10, bottom: 0, right: 10 )
+        slider.setMinimumTrackImage( (#imageLiteral(resourceName: "SliderTrackLeft")).resizableImage(withCapInsets: insets ), for: .normal )
+        slider.setMaximumTrackImage( (#imageLiteral(resourceName: "SliderTrackRight")).resizableImage(withCapInsets: insets ), for: .normal )
+    
+        let betweenbuttonAndLabel = ( hitMeButton.frame.minY + goalNumberLabel.frame.maxY ) / 2
+        let sliderAndLabelsY = betweenbuttonAndLabel - slider.frame.height / 2
+        slider.frame.origin.y = sliderAndLabelsY
+        zeroLabel.frame.origin.y = sliderAndLabelsY
+        hundredLabel.frame.origin.y = sliderAndLabelsY
+        sliderValueChanged()
+        sliderLabel.isHidden = true
     }
-
+    
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.
     }
-
+    
     var randomGenerator = { return Int( arc4random_uniform( 99 ) + 1 ) }
-
+    var seriesTuple = ( hundredPoints : 0.0 , fiftyPoints : 0.0 )
     var roundNumber = 1
     var roundScore = 0
     var totalScore = 0
     var goalNumber = 0
     
-    @IBOutlet weak var sliderLabel: UILabel!{
-        didSet{
-            sliderValueChanged()
-            sliderLabel.isHidden = true
-        }
-    }
+    @IBOutlet weak var sliderLabel: UILabel!
     @IBOutlet weak var slider : UISlider!
     @IBOutlet weak var goalNumberLabel : UILabel!
     @IBOutlet weak var roundScoreLabel : UILabel!
     @IBOutlet weak var totalScoreLabel : UILabel!
     @IBOutlet weak var roundNumberLabel : UILabel!
+    @IBOutlet weak var hitMeButton: UIButton!
+    @IBOutlet weak var zeroLabel: UILabel!
+    @IBOutlet weak var hundredLabel: UILabel!
     
     var godMode = false
-    @IBAction func godMode(_ sender: UIButton) {
+    @IBAction func godMode( _ sender: UIButton) {
         godMode = !godMode
         sliderLabel.isHidden = !godMode
         let underLined = godMode ? 1 : 0
@@ -54,19 +66,37 @@ class ViewController: UIViewController {
     }
     @IBAction func game(){
         sliderLabel.isHidden = false
+        roundScore = 100 - abs( goalNumber - Int( roundf( slider.value ) ) )
+        switch roundScore {
+        case 100:
+            seriesTuple.fiftyPoints = 0.0
+        case 95..<100:
+            seriesTuple.hundredPoints = 0.0
+        default:
+            seriesTuple.hundredPoints = 0.0
+            seriesTuple.fiftyPoints = 0.0
+        }
+
+        let hundredPointsSeries = seriesTuple.hundredPoints >= 1.0 , fiftyPointsSeries = seriesTuple.fiftyPoints >= 1.0
+        roundScoreLabel.text = "You scored \( roundScore ) points" + ( hundredPointsSeries ? " + \( Int( seriesTuple.hundredPoints ) ) * 100%" : "" ) + ( fiftyPointsSeries ?  " + \( Int( seriesTuple.fiftyPoints ) ) * 50%" : "" ) + ( hundredPointsSeries || fiftyPointsSeries ?  " bonus" : "" )
         
-        roundScore = abs( goalNumber - Int( roundf( slider.value ) ) )
-        self.roundScoreLabel.text = "Round score: \(self.roundScore)"
+        totalScore += Int( Double( roundScore ) * ( 1.0 + seriesTuple.hundredPoints * 1.0 + seriesTuple.fiftyPoints * 0.5 ) )
+        totalScoreLabel.text = "Total score: \(totalScore)"
         
-        self.totalScore += self.roundScore
-        self.totalScoreLabel.text = "Total score: \(self.totalScore)"
+        roundNumber += 1
+        roundNumberLabel.text = "Round number: \(roundNumber)"
         
-        self.roundNumber += 1
-        self.roundNumberLabel.text = "Round number: \(self.roundNumber)"
-            
-        self.goalNumber = self.randomGenerator()
-        self.goalNumberLabel.text = "Hit the \(self.goalNumber)!"
-        
+        goalNumber = randomGenerator()
+        goalNumberLabel.text = "Hit the \(goalNumber)!"
+        switch roundScore {
+            case 100:
+                seriesTuple.hundredPoints += 1.0
+            case 95..<100:
+                seriesTuple.fiftyPoints += 1.0
+                seriesTuple.hundredPoints += 1.0
+            default:
+                break
+        }
     }
     
     @IBAction func newGame(){
@@ -76,30 +106,23 @@ class ViewController: UIViewController {
         roundNumber = 1
         totalScore = 0
         
-        roundScoreLabel.text = "Round score: "
+        seriesTuple = ( 0 , 0 )
+        roundScoreLabel.text = ""
         totalScoreLabel.text = "Total score: 0"
         roundNumberLabel.text = "Round number: 1"
-    }
-    
-    @IBAction func info() {
-        let alert = UIAlertController(title: "Tutorial", message: "You have to set on slider value, that label over it shows.", preferredStyle: .alert )
-        let understandAction = UIAlertAction(title: "Understand", style: .default )
-        alert.addAction( understandAction )
-        present( alert , animated: true ) 
     }
     
     @IBAction func sliderValueChanged(){
         if !godMode{
             sliderLabel.isHidden = true
         }
-        
+        roundScoreLabel.text = ""
         sliderLabel.text = "\( Int( roundf( slider.value ) ) )"
-        let sliderPointWidth = slider.thumbRect( forBounds: slider.bounds, trackRect: slider.trackRect( forBounds: slider.bounds ), value: 0 ).size.width
+        let thumbswidth = slider.thumbRect( forBounds: slider.bounds, trackRect: slider.trackRect( forBounds: slider.bounds ), value: 0 ).size.width
         let leftMove = slider.frame.minX
-        let allRange = ( slider.frame.width - sliderPointWidth ) * CGFloat( slider.value / slider.maximumValue )
+        let allRange = ( slider.frame.width - thumbswidth ) * CGFloat( slider.value / slider.maximumValue )
         let middleOfSliferLabel = sliderLabel.frame.width / 2
-        let x = leftMove + sliderPointWidth / 2 + allRange - middleOfSliferLabel
-        sliderLabel.frame.origin = CGPoint( x: CGFloat(x) , y: sliderLabel.frame.minY )
+        sliderLabel.frame.origin = CGPoint( x: CGFloat( leftMove + thumbswidth / 2 + allRange - middleOfSliferLabel ) , y: slider.frame.midY - sliderLabel.frame.height / 2 )
     }
 }
 
